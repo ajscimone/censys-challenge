@@ -5,14 +5,95 @@
 package db
 
 import (
+	"database/sql/driver"
+	"fmt"
+
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+type AccessLevel string
+
+const (
+	AccessLevelPrivate      AccessLevel = "private"
+	AccessLevelOrganization AccessLevel = "organization"
+	AccessLevelShared       AccessLevel = "shared"
+)
+
+func (e *AccessLevel) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = AccessLevel(s)
+	case string:
+		*e = AccessLevel(s)
+	default:
+		return fmt.Errorf("unsupported scan type for AccessLevel: %T", src)
+	}
+	return nil
+}
+
+type NullAccessLevel struct {
+	AccessLevel AccessLevel
+	Valid       bool // Valid is true if AccessLevel is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullAccessLevel) Scan(value interface{}) error {
+	if value == nil {
+		ns.AccessLevel, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.AccessLevel.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullAccessLevel) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.AccessLevel), nil
+}
+
+type Collection struct {
+	ID             int32
+	Uid            pgtype.UUID
+	Name           string
+	Data           []byte
+	AccessLevel    AccessLevel
+	OwnerID        pgtype.Int4
+	OrganizationID pgtype.Int4
+	CreatedAt      pgtype.Timestamptz
+	UpdatedAt      pgtype.Timestamptz
+}
+
+type Organization struct {
+	ID        int32
+	Uid       pgtype.UUID
+	Name      string
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+}
+
+type OrganizationMember struct {
+	ID             int32
+	UserID         int32
+	OrganizationID int32
+	CreatedAt      pgtype.Timestamptz
+}
+
+type ShareLink struct {
+	ID           int32
+	Token        string
+	CollectionID int32
+	AccessCount  int32
+	CreatedBy    int32
+	CreatedAt    pgtype.Timestamptz
+}
 
 type User struct {
 	ID        int32
 	Uid       pgtype.UUID
 	Email     string
-	Name      string
 	CreatedAt pgtype.Timestamptz
 	UpdatedAt pgtype.Timestamptz
 }

@@ -9,8 +9,27 @@ import (
 	"context"
 )
 
+const createUser = `-- name: CreateUser :one
+INSERT INTO users (email)
+VALUES ($1)
+RETURNING id, uid, email, created_at, updated_at
+`
+
+func (q *Queries) CreateUser(ctx context.Context, email string) (User, error) {
+	row := q.db.QueryRow(ctx, createUser, email)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Uid,
+		&i.Email,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getAllUsers = `-- name: GetAllUsers :many
-SELECT id, uid, email, name, created_at, updated_at
+SELECT id, uid, email, created_at, updated_at
 FROM users
 ORDER BY created_at DESC
 `
@@ -28,7 +47,6 @@ func (q *Queries) GetAllUsers(ctx context.Context) ([]User, error) {
 			&i.ID,
 			&i.Uid,
 			&i.Email,
-			&i.Name,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -43,7 +61,7 @@ func (q *Queries) GetAllUsers(ctx context.Context) ([]User, error) {
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, uid, email, name, created_at, updated_at
+SELECT id, uid, email, created_at, updated_at
 FROM users
 WHERE email = $1
 `
@@ -55,7 +73,6 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.ID,
 		&i.Uid,
 		&i.Email,
-		&i.Name,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -63,7 +80,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, uid, email, name, created_at, updated_at
+SELECT id, uid, email, created_at, updated_at
 FROM users
 WHERE id = $1
 `
@@ -75,7 +92,6 @@ func (q *Queries) GetUserByID(ctx context.Context, id int32) (User, error) {
 		&i.ID,
 		&i.Uid,
 		&i.Email,
-		&i.Name,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
