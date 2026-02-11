@@ -7,6 +7,8 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createUser = `-- name: CreateUser :one
@@ -87,6 +89,25 @@ WHERE id = $1
 
 func (q *Queries) GetUserByID(ctx context.Context, id int32) (User, error) {
 	row := q.db.QueryRow(ctx, getUserByID, id)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Uid,
+		&i.Email,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getUserByUID = `-- name: GetUserByUID :one
+SELECT id, uid, email, created_at, updated_at
+FROM users
+WHERE uid = $1
+`
+
+func (q *Queries) GetUserByUID(ctx context.Context, uid pgtype.UUID) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByUID, uid)
 	var i User
 	err := row.Scan(
 		&i.ID,

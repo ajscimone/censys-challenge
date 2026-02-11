@@ -17,3 +17,8 @@ WHERE email = $1;
 INSERT INTO users (email)
 VALUES ($1)
 RETURNING id, uid, email, created_at, updated_at;
+
+-- name: GetUserByUID :one
+SELECT id, uid, email, created_at, updated_at
+FROM users
+WHERE uid = $1;
