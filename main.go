@@ -31,7 +31,7 @@ func setUpOrg(queries *db.Queries, ctx context.Context) {
 	}
 	fmt.Printf("Created org: UID=%s, Name=%s\n", org.Uid, org.Name)
 
-	err = adminServer.AddOrganizationMember(ctx, &censysv1.AddOrganizationMemberRequest{
+	_, err = adminServer.AddOrganizationMember(ctx, &censysv1.AddOrganizationMemberRequest{
 		UserUid:         user.Uid,
 		OrganizationUid: org.Uid,
 	})
@@ -40,18 +40,7 @@ func setUpOrg(queries *db.Queries, ctx context.Context) {
 	}
 }
 
-func main() {
-	ctx := context.Background()
-
-	dbURL := "postgres://admin:password1@localhost:5432/censys-challenge?sslmode=disable"
-	pool, err := pgxpool.New(ctx, dbURL)
-	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
-	}
-	defer pool.Close()
-
-	queries := db.New(pool)
-
+func testJWT(queries *db.Queries, ctx context.Context) {
 	auth := authentication.NewAuthenticator(queries, "salami-is-bomb")
 
 	token, err := auth.Login(ctx, "tony@example.com")
@@ -69,4 +58,63 @@ func main() {
 	if err != nil {
 		fmt.Printf("Mission failed successfully: %v\n", err)
 	}
+}
+
+func testCollections(queries *db.Queries, auth *authentication.Authenticator, ctx context.Context) {
+	collectionServer := server.NewCollectionServer(queries, auth)
+
+	collection, err := collectionServer.CreateCollection(ctx, &censysv1.CreateCollectionRequest{
+		Name:        "My Test Collection",
+		Data:        nil,
+		AccessLevel: censysv1.AccessLevel_ACCESS_LEVEL_PRIVATE,
+	})
+	if err != nil {
+		log.Fatalf("Failed to create collection: %v", err)
+	}
+	fmt.Printf("Created collection: Name=%s\n", collection.Name)
+
+	retrieved, err := collectionServer.GetCollection(ctx, &censysv1.GetCollectionRequest{
+		Uid: collection.Uid,
+	})
+	if err != nil {
+		log.Fatalf("Failed to get collection: %v", err)
+	}
+	fmt.Printf("Retrieved collection: Name=%s\n", retrieved.Name)
+
+	updated, err := collectionServer.UpdateCollection(ctx, &censysv1.UpdateCollectionRequest{
+		Uid:         collection.Uid,
+		Name:        "Updated Collection Name",
+		Data:        nil,
+		AccessLevel: censysv1.AccessLevel_ACCESS_LEVEL_PRIVATE,
+	})
+	if err != nil {
+		log.Fatalf("Failed to update collection: %v", err)
+	}
+	fmt.Printf("Updated collection: Name=%s\n", updated.Name)
+
+	_, err = collectionServer.DeleteCollection(ctx, &censysv1.DeleteCollectionRequest{
+		Uid: collection.Uid,
+	})
+	if err != nil {
+		log.Fatalf("Failed to delete collection: %v", err)
+	}
+
+}
+
+func main() {
+	ctx := context.Background()
+
+	dbURL := "postgres://admin:password1@localhost:5432/censys-challenge?sslmode=disable"
+	pool, err := pgxpool.New(ctx, dbURL)
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+	defer pool.Close()
+
+	queries := db.New(pool)
+
+	auth := authentication.NewAuthenticator(queries, "salami-is-bomb")
+
+	testCollections(queries, auth, ctx)
+
 }

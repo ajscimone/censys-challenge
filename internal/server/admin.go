@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type AdminServer struct {
@@ -63,32 +64,32 @@ func (s *AdminServer) CreateOrganization(ctx context.Context, req *censysv1.Crea
 	}, nil
 }
 
-func (s *AdminServer) AddOrganizationMember(ctx context.Context, req *censysv1.AddOrganizationMemberRequest) (error) {
+func (s *AdminServer) AddOrganizationMember(ctx context.Context, req *censysv1.AddOrganizationMemberRequest) (*emptypb.Empty, error) {
 	if req.UserUid == "" {
-		return status.Error(codes.InvalidArgument, "user_uid is required")
+		return nil, status.Error(codes.InvalidArgument, "user_uid is required")
 	}
 	if req.OrganizationUid == "" {
-		return status.Error(codes.InvalidArgument, "organization_uid is required")
+		return nil, status.Error(codes.InvalidArgument, "organization_uid is required")
 	}
 
 	var userUUID pgtype.UUID
 	if err := userUUID.Scan(req.UserUid); err != nil {
-		return status.Errorf(codes.InvalidArgument, "invalid user_uid: %v", err)
+		return nil, status.Errorf(codes.InvalidArgument, "invalid user_uid: %v", err)
 	}
 
 	var orgUUID pgtype.UUID
 	if err := orgUUID.Scan(req.OrganizationUid); err != nil {
-		return status.Errorf(codes.InvalidArgument, "invalid organization_uid: %v", err)
+		return nil, status.Errorf(codes.InvalidArgument, "invalid organization_uid: %v", err)
 	}
 
 	dbUser, err := s.queries.GetUserByUID(ctx, userUUID)
 	if err != nil {
-		return status.Errorf(codes.NotFound, "user not found: %v", err)
+		return nil, status.Errorf(codes.NotFound, "user not found: %v", err)
 	}
 
 	dbOrg, err := s.queries.GetOrganizationByUID(ctx, orgUUID)
 	if err != nil {
-		return status.Errorf(codes.NotFound, "organization not found: %v", err)
+		return nil, status.Errorf(codes.NotFound, "organization not found: %v", err)
 	}
 
 	err = s.queries.AddOrganizationMember(ctx, db.AddOrganizationMemberParams{
@@ -96,8 +97,8 @@ func (s *AdminServer) AddOrganizationMember(ctx context.Context, req *censysv1.A
 		OrganizationID: dbOrg.ID,
 	})
 	if err != nil {
-		return status.Errorf(codes.Internal, "failed to add member: %v", err)
+		return nil, status.Errorf(codes.Internal, "failed to add member: %v", err)
 	}
 
-	return nil
+	return &emptypb.Empty{}, nil
 }

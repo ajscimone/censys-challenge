@@ -45,3 +45,53 @@ message LoginRequest {
 message LoginResponse {
   string token = 1;
 }
+
+enum AccessLevel {
+  ACCESS_LEVEL_UNSPECIFIED = 0;
+  ACCESS_LEVEL_PRIVATE = 1;
+  ACCESS_LEVEL_ORGANIZATION = 2;
+  ACCESS_LEVEL_SHARED = 3;
+}
+
+message Collection {
+  string uid = 1;
+  string name = 2;
+  google.protobuf.Struct data = 3;
+  AccessLevel access_level = 4;
+  string owner_id = 5;
+  string organization_id = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+message CreateCollectionRequest {
+  string name = 1;
+  google.protobuf.Struct data = 2;
+  AccessLevel access_level = 3;
+  string organization_uid = 4;
+}
+
+message GetCollectionRequest {
+  string uid = 1;
+}
+
+message UpdateCollectionRequest {
+  string uid = 1;
+  string name = 2;
+  google.protobuf.Struct data = 3;
+  AccessLevel access_level = 4;
+  string organization_uid = 5;
+}
+
+message DeleteCollectionRequest {
+  string uid = 1;
+}
+
+service CollectionService {
+  rpc Login(LoginRequest) returns (LoginResponse);
+  
+  rpc CreateCollection(CreateCollectionRequest) returns (Collection);
+  rpc GetCollection(GetCollectionRequest) returns (Collection);
+  rpc UpdateCollection(UpdateCollectionRequest) returns (Collection);
+  rpc DeleteCollection(DeleteCollectionRequest) returns (google.protobuf.Empty);
+}
