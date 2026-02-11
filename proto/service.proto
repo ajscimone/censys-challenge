@@ -37,3 +37,11 @@ service AdminService {
   rpc CreateOrganization(CreateOrganizationRequest) returns (Organization);
   rpc AddOrganizationMember(AddOrganizationMemberRequest) returns (google.protobuf.Empty);
 }
+
+message LoginRequest {
+  string email = 1;
+}
+
+message LoginResponse {
+  string token = 1;
+}
