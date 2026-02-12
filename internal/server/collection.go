@@ -249,3 +249,19 @@ func dbCollectionToProto(c db.Collection) (*censysv1.Collection, error) {
 		UpdatedAt:      timestamppb.New(c.UpdatedAt.Time),
 	}, nil
 }
+
+// This is purely to simplify the challenge to expose a login method through rpc.
+func (s *CollectionServer) Login(ctx context.Context, req *censysv1.LoginRequest) (*censysv1.LoginResponse, error) {
+	if req.Email == "" {
+		return nil, status.Error(codes.InvalidArgument, "email is required")
+	}
+
+	token, err := s.auth.Login(ctx, req.Email)
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "login failed: %v", err)
+	}
+
+	return &censysv1.LoginResponse{
+		Token: token,
+	}, nil
+}

@@ -2,109 +2,35 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
+	"net"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/ajscimone/censys-challenge/gen/proto"
 	"github.com/ajscimone/censys-challenge/internal/authentication"
 	"github.com/ajscimone/censys-challenge/internal/db"
 	"github.com/ajscimone/censys-challenge/internal/server"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
-func setUpOrg(queries *db.Queries, ctx context.Context) {
-	adminServer := server.NewAdminServer(queries)
-
-	user, err := adminServer.CreateUser(ctx, &censysv1.CreateUserRequest{
-		Email: "tony@example.com",
-	})
-	if err != nil {
-		log.Fatalf("Failed to create user: %v", err)
+func getEnv(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
 	}
-	fmt.Printf("Created user: UID=%s, Email=%s\n", user.Uid, user.Email)
-
-	org, err := adminServer.CreateOrganization(ctx, &censysv1.CreateOrganizationRequest{
-		Name: "Test Org",
-	})
-	if err != nil {
-		log.Fatalf("Failed to create organization: %v", err)
-	}
-	fmt.Printf("Created org: UID=%s, Name=%s\n", org.Uid, org.Name)
-
-	_, err = adminServer.AddOrganizationMember(ctx, &censysv1.AddOrganizationMemberRequest{
-		UserUid:         user.Uid,
-		OrganizationUid: org.Uid,
-	})
-	if err != nil {
-		log.Fatalf("Failed to add member: %v", err)
-	}
-}
-
-func testJWT(queries *db.Queries, ctx context.Context) {
-	auth := authentication.NewAuthenticator(queries, "salami-is-bomb")
-
-	token, err := auth.Login(ctx, "tony@example.com")
-	if err != nil {
-		log.Fatalf("Failed to login: %v", err)
-	}
-	fmt.Printf("Generated JWT: %s\n", token)
-
-	_, err = auth.ValidateToken(token)
-	if err != nil {
-		log.Fatalf("Failed to validate token: %v", err)
-	}
-
-	_, err = auth.ValidateToken("invalid-token-here")
-	if err != nil {
-		fmt.Printf("Mission failed successfully: %v\n", err)
-	}
-}
-
-func testCollections(queries *db.Queries, auth *authentication.Authenticator, ctx context.Context) {
-	collectionServer := server.NewCollectionServer(queries, auth)
-
-	collection, err := collectionServer.CreateCollection(ctx, &censysv1.CreateCollectionRequest{
-		Name:        "My Test Collection",
-		Data:        nil,
-		AccessLevel: censysv1.AccessLevel_ACCESS_LEVEL_PRIVATE,
-	})
-	if err != nil {
-		log.Fatalf("Failed to create collection: %v", err)
-	}
-	fmt.Printf("Created collection: Name=%s\n", collection.Name)
-
-	retrieved, err := collectionServer.GetCollection(ctx, &censysv1.GetCollectionRequest{
-		Uid: collection.Uid,
-	})
-	if err != nil {
-		log.Fatalf("Failed to get collection: %v", err)
-	}
-	fmt.Printf("Retrieved collection: Name=%s\n", retrieved.Name)
-
-	updated, err := collectionServer.UpdateCollection(ctx, &censysv1.UpdateCollectionRequest{
-		Uid:         collection.Uid,
-		Name:        "Updated Collection Name",
-		Data:        nil,
-		AccessLevel: censysv1.AccessLevel_ACCESS_LEVEL_PRIVATE,
-	})
-	if err != nil {
-		log.Fatalf("Failed to update collection: %v", err)
-	}
-	fmt.Printf("Updated collection: Name=%s\n", updated.Name)
-
-	_, err = collectionServer.DeleteCollection(ctx, &censysv1.DeleteCollectionRequest{
-		Uid: collection.Uid,
-	})
-	if err != nil {
-		log.Fatalf("Failed to delete collection: %v", err)
-	}
-
+	return fallback
 }
 
 func main() {
 	ctx := context.Background()
 
-	dbURL := "postgres://admin:password1@localhost:5432/censys-challenge?sslmode=disable"
+	dbURL := getEnv("DATABASE_URL", "postgres://admin:password1@localhost:5432/censys-challenge?sslmode=disable")
+	jwtSecret := getEnv("JWT_SECRET", "salami-is-bomb")
+	port := getEnv("PORT", "50051")
+
 	pool, err := pgxpool.New(ctx, dbURL)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
@@ -112,9 +38,32 @@ func main() {
 	defer pool.Close()
 
 	queries := db.New(pool)
+	auth := authentication.NewAuthenticator(queries, jwtSecret)
 
-	auth := authentication.NewAuthenticator(queries, "salami-is-bomb")
+	grpcServer := grpc.NewServer()
 
-	testCollections(queries, auth, ctx)
+	censysv1.RegisterCollectionServiceServer(grpcServer, server.NewCollectionServer(queries, auth))
+	censysv1.RegisterAdminServiceServer(grpcServer, server.NewAdminServer(queries))
 
+	reflection.Register(grpcServer)
+
+	lis, err := net.Listen("tcp", ":"+port)
+	if err != nil {
+		log.Fatalf("Failed to listen: %v", err)
+	}
+
+	log.Printf("gRPC server listening on :%s", port)
+
+	go func() {
+		if err := grpcServer.Serve(lis); err != nil {
+			log.Fatalf("Failed to serve: %v", err)
+		}
+	}()
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	<-sigChan
+
+	log.Println("Shutting down gracefully...")
+	grpcServer.GracefulStop()
 }
