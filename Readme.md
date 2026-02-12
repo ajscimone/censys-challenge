@@ -48,8 +48,8 @@ erDiagram
         TIMESTAMPTZ created_at
     }
 
-    users ||--o{ organization_members : "has"
     organizations ||--o{ organization_members : "has"
+    organization_members }o--|| users : "belongs to"
     users ||--o{ collections : "owns"
     organizations ||--o{ collections : "owns"
     collections ||--o{ share_links : "has"
