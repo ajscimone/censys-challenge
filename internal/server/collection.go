@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/ajscimone/censys-challenge/gen/proto"
 	"github.com/ajscimone/censys-challenge/internal/authentication"
@@ -77,7 +78,7 @@ func (s *CollectionServer) CreateCollection(ctx context.Context, req *censysv1.C
 	dbCollection, err := s.queries.CreateCollection(ctx, db.CreateCollectionParams{
 		Name:           req.Name,
 		Data:           dataBytes,
-		AccessLevel:    db.AccessLevel(req.AccessLevel.String()[len("ACCESS_LEVEL_"):]),
+		AccessLevel:    db.AccessLevel(strings.ToLower(req.AccessLevel.String()[len("ACCESS_LEVEL_"):])),
 		OwnerID:        pgtype.Int4{Int32: userID, Valid: true},
 		OrganizationID: orgID,
 	})
@@ -156,7 +157,7 @@ func (s *CollectionServer) UpdateCollection(ctx context.Context, req *censysv1.U
 	accessLevel := dbCollection.AccessLevel
 	orgID := dbCollection.OrganizationID
 	if req.AccessLevel != censysv1.AccessLevel_ACCESS_LEVEL_UNSPECIFIED {
-		accessLevel = db.AccessLevel(req.AccessLevel.String()[len("ACCESS_LEVEL_"):])
+		accessLevel = db.AccessLevel(strings.ToLower(req.AccessLevel.String()[len("ACCESS_LEVEL_"):]))
 
 		if req.AccessLevel == censysv1.AccessLevel_ACCESS_LEVEL_ORGANIZATION {
 			if req.OrganizationUid == "" {
