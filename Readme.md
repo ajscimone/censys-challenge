@@ -1,5 +1,82 @@
 # Censys Challenge
 
+## Entity Relationship Diagram
+
+```mermaid
+erDiagram
+    users {
+        SERIAL id PK
+        UUID uid UK
+        TEXT email UK
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+
+    organizations {
+        SERIAL id PK
+        UUID uid UK
+        TEXT name
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+
+    organization_members {
+        SERIAL id PK
+        INTEGER user_id FK
+        INTEGER organization_id FK
+        TIMESTAMPTZ created_at
+    }
+
+    collections {
+        SERIAL id PK
+        UUID uid UK
+        TEXT name
+        JSONB data
+        access_level access_level
+        INTEGER owner_id FK
+        INTEGER organization_id FK
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+
+    share_links {
+        SERIAL id PK
+        TEXT token UK
+        INTEGER collection_id FK
+        INTEGER access_count
+        INTEGER created_by FK
+        TIMESTAMPTZ created_at
+    }
+
+    users ||--o{ organization_members : "has"
+    organizations ||--o{ organization_members : "has"
+    users ||--o{ collections : "owns"
+    organizations ||--o{ collections : "owns"
+    collections ||--o{ share_links : "has"
+    users ||--o{ share_links : "creates"
+```
+
+## Assumptions and Tradeoffs
+
+Assumptions:
+- I chose a rate limiter which limits requests to specific share links to 1000 times per 5 minutes.
+- Share links do work without authentication
+- We track who accesses each collection via normal auth, but anyone with a share link token can gain access to them so no way to trace those accesses for security. There are other ways we could track this with something like an audit logger or a prometheus stream.
+- updates to share links are done at the database level which is very near real time but not as close to real time as something like an in memory cache might be.
+
+Tradeoffs: 
+- using a rate limiter over other options (caching, request coalescing, cdn)
+- lots of implmentations are using direct database calls and concrete types done for the sake of time. This will make the implementation difficult to test and difficult to trade out packages and function calls for alternative implementations
+
+Short cuts:
+- organization names not unique
+- Login does no real authentication for the purpose of simplifying the challenge
+- Revocation happens at the database layer as opposed to something higher up the stack
+- Rate limiter is limiting on calls to individual share tokens per share token as opposed to total requests or ip addresses
+- JWT auth does not currently expire tokens for the sake of simplicity. We only check that we signed it
+- I chose to put the Login method inside the Collections service since we have simplified auth for this challenge and dont have an auth service
+
+
 ## Setup
 
 ### Docker
@@ -8,10 +85,10 @@ To run everything you can run:
 `docker compose up -d`
 
 To kill all the containers and delete you can run
-`docker-compose down -v`
+`docker compose down -v`
 
 A quick workflow is 
-`docker-compose down -v && docker-compose build --no-cache app && docker-compose up -d`
+`docker compose down -v && docker-compose build --no-cache app && docker-compose up -d`
 
 ### Migrations
 

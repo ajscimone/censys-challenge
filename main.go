@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/ajscimone/censys-challenge/gen/proto"
 	"github.com/ajscimone/censys-challenge/internal/authentication"
@@ -28,6 +29,7 @@ func getEnv(key, fallback string) string {
 func main() {
 	ctx := context.Background()
 
+	// would be better to use a repository pattern around the database here so that database can be swapped out for things like an in memory implementation
 	dbURL := getEnv("DATABASE_URL", "postgres://admin:password1@localhost:5432/censys-challenge?sslmode=disable")
 	jwtSecret := getEnv("JWT_SECRET", "salami-is-bomb")
 	port := getEnv("PORT", "50051")
@@ -41,8 +43,11 @@ func main() {
 	queries := db.New(pool)
 	auth := authentication.NewAuthenticator(queries, jwtSecret)
 
+	rateLimiter := middleware.NewSlidingWindowRateLimiter(1000, 5*time.Minute)
+
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
+			middleware.RateLimitInterceptor(rateLimiter),
 			middleware.AuthInterceptor(auth),
 		),
 	)
