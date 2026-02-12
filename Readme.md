@@ -59,7 +59,7 @@ erDiagram
 ## Assumptions and Tradeoffs
 
 Assumptions:
-- I chose a rate limiter which limits requests to specific share links to 1000 times per 5 minutes.
+- I chose a rate limiter which limits requests to specific share links to 1000 times per 5 minutes. This is not limiting the number of requests from API users. I am making the assumption that share links are my bottle neck.
 - Share links do work without authentication
 - We track who accesses each collection via normal auth, but anyone with a share link token can gain access to them so no way to trace those accesses for security. There are other ways we could track this with something like an audit logger or a prometheus stream.
 - updates to share links are done at the database level which is very near real time but not as close to real time as something like an in memory cache might be.

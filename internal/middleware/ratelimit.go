@@ -15,16 +15,6 @@ type RateLimiter interface {
 	Allow(key string) bool
 }
 
-type StubRateLimiter struct{}
-
-func NewStubRateLimiter() *StubRateLimiter {
-	return &StubRateLimiter{}
-}
-
-func (s *StubRateLimiter) Allow(key string) bool {
-	return true
-}
-
 type entry struct {
 	timestamps []time.Time
 }
