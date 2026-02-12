@@ -8,6 +8,7 @@ import (
 	"github.com/ajscimone/censys-challenge/gen/proto"
 	"github.com/ajscimone/censys-challenge/internal/authentication"
 	"github.com/ajscimone/censys-challenge/internal/db"
+	"github.com/ajscimone/censys-challenge/internal/middleware"
 	"github.com/jackc/pgx/v5/pgtype"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -34,7 +35,10 @@ func (s *CollectionServer) CreateCollection(ctx context.Context, req *censysv1.C
 		return nil, status.Error(codes.InvalidArgument, "name is required")
 	}
 
-	userID := int32(1)
+	userID, err := middleware.UserIDFromContext(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "authentication required")
+	}
 
 	var orgID pgtype.Int4
 	if req.AccessLevel == censysv1.AccessLevel_ACCESS_LEVEL_ORGANIZATION {
@@ -97,7 +101,10 @@ func (s *CollectionServer) GetCollection(ctx context.Context, req *censysv1.GetC
 		return nil, status.Errorf(codes.NotFound, "collection not found: %v", err)
 	}
 
-	userID := int32(1)
+	userID, err := middleware.UserIDFromContext(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "authentication required")
+	}
 
 	if !checkAccess(ctx, s.queries, dbCollection.ID, userID) {
 		return nil, status.Error(codes.PermissionDenied, "access denied")
@@ -121,7 +128,10 @@ func (s *CollectionServer) UpdateCollection(ctx context.Context, req *censysv1.U
 		return nil, status.Errorf(codes.NotFound, "collection not found: %v", err)
 	}
 
-	userID := int32(1)
+	userID, err := middleware.UserIDFromContext(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "authentication required")
+	}
 
 	if !checkAccess(ctx, s.queries, dbCollection.ID, userID) {
 		return nil, status.Error(codes.PermissionDenied, "access denied")
@@ -176,7 +186,10 @@ func (s *CollectionServer) DeleteCollection(ctx context.Context, req *censysv1.D
 		return nil, status.Errorf(codes.NotFound, "collection not found: %v", err)
 	}
 
-	userID := int32(1)
+	userID, err := middleware.UserIDFromContext(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "authentication required")
+	}
 
 	if !checkAccess(ctx, s.queries, dbCollection.ID, userID) {
 		return nil, status.Error(codes.PermissionDenied, "access denied")

@@ -11,6 +11,7 @@ import (
 	"github.com/ajscimone/censys-challenge/gen/proto"
 	"github.com/ajscimone/censys-challenge/internal/authentication"
 	"github.com/ajscimone/censys-challenge/internal/db"
+	"github.com/ajscimone/censys-challenge/internal/middleware"
 	"github.com/ajscimone/censys-challenge/internal/server"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/grpc"
@@ -40,7 +41,11 @@ func main() {
 	queries := db.New(pool)
 	auth := authentication.NewAuthenticator(queries, jwtSecret)
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(
+			middleware.AuthInterceptor(auth),
+		),
+	)
 
 	censysv1.RegisterCollectionServiceServer(grpcServer, server.NewCollectionServer(queries, auth))
 	censysv1.RegisterAdminServiceServer(grpcServer, server.NewAdminServer(queries))
