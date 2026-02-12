@@ -32,10 +32,15 @@ message AddOrganizationMemberRequest {
   string organization_uid = 2;
 }
 
+message OrganizationMembership {
+  User user = 1;
+  Organization organization = 2;
+}
+
 service AdminService {
   rpc CreateUser(CreateUserRequest) returns (User);
   rpc CreateOrganization(CreateOrganizationRequest) returns (Organization);
-  rpc AddOrganizationMember(AddOrganizationMemberRequest) returns (google.protobuf.Empty);
+  rpc AddOrganizationMember(AddOrganizationMemberRequest) returns (OrganizationMembership);
 }
 
 message LoginRequest {
@@ -94,4 +99,31 @@ service CollectionService {
   rpc GetCollection(GetCollectionRequest) returns (Collection);
   rpc UpdateCollection(UpdateCollectionRequest) returns (Collection);
   rpc DeleteCollection(DeleteCollectionRequest) returns (google.protobuf.Empty);
+
+  rpc CreateShareToken(CreateShareTokenRequest) returns (ShareToken);
+  rpc GetSharedCollection(GetSharedCollectionRequest) returns (SharedCollectionResponse);
+}
+
+message ShareToken {
+  string token = 1;
+  string collection_uid = 2;
+  int32 access_count = 3;
+  google.protobuf.Timestamp created_at = 4;
+}
+
+message CreateShareTokenRequest {
+  string collection_uid = 1;
+}
+
+message GetSharedCollectionRequest {
+  string token = 1;
+}
+
+message SharedCollectionResponse {
+  Collection collection = 1;
+  int32 access_count = 2;
+}
+
+message RevokeShareTokenRequest {
+  string token = 1;
 }

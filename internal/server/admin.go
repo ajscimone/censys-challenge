@@ -8,7 +8,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type AdminServer struct {
@@ -64,7 +63,7 @@ func (s *AdminServer) CreateOrganization(ctx context.Context, req *censysv1.Crea
 	}, nil
 }
 
-func (s *AdminServer) AddOrganizationMember(ctx context.Context, req *censysv1.AddOrganizationMemberRequest) (*emptypb.Empty, error) {
+func (s *AdminServer) AddOrganizationMember(ctx context.Context, req *censysv1.AddOrganizationMemberRequest) (*censysv1.OrganizationMembership, error) {
 	if req.UserUid == "" {
 		return nil, status.Error(codes.InvalidArgument, "user_uid is required")
 	}
@@ -100,5 +99,24 @@ func (s *AdminServer) AddOrganizationMember(ctx context.Context, req *censysv1.A
 		return nil, status.Errorf(codes.Internal, "failed to add member: %v", err)
 	}
 
-	return &emptypb.Empty{}, nil
+	userUIDBytes, err := dbUser.Uid.MarshalJSON()
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to marshal user uid: %v", err)
+	}
+
+	orgUIDBytes, err := dbOrg.Uid.MarshalJSON()
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to marshal org uid: %v", err)
+	}
+
+	return &censysv1.OrganizationMembership{
+		User: &censysv1.User{
+			Uid:   string(userUIDBytes[1 : len(userUIDBytes)-1]),
+			Email: dbUser.Email,
+		},
+		Organization: &censysv1.Organization{
+			Uid:  string(orgUIDBytes[1 : len(orgUIDBytes)-1]),
+			Name: dbOrg.Name,
+		},
+	}, nil
 }
