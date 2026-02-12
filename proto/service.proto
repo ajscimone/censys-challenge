@@ -102,6 +102,7 @@ service CollectionService {
 
   rpc CreateShareToken(CreateShareTokenRequest) returns (ShareToken);
   rpc GetSharedCollection(GetSharedCollectionRequest) returns (SharedCollectionResponse);
+  rpc RevokeShareToken(RevokeShareTokenRequest) returns (google.protobuf.Empty);
 }
 
 message ShareToken {

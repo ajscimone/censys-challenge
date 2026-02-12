@@ -371,6 +371,32 @@ func (s *CollectionServer) GetSharedCollection(ctx context.Context, req *censysv
 
 }
 
+func (s *CollectionServer) RevokeShareToken(ctx context.Context, req *censysv1.RevokeShareTokenRequest) (*emptypb.Empty, error) {
+	if req.Token == "" {
+		return nil, status.Error(codes.InvalidArgument, "token is required")
+	}
+
+	userID, err := middleware.UserIDFromContext(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "authentication required")
+	}
+
+	shareLink, err := s.queries.GetShareLinkByToken(ctx, req.Token)
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "token not found: %v", err)
+	}
+
+	if !checkAccess(ctx, s.queries, shareLink.CollectionID, userID) {
+		return nil, status.Error(codes.PermissionDenied, "access denied")
+	}
+
+	if err := s.queries.DeleteShareLinkByToken(ctx, req.Token); err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to revoke token: %v", err)
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
 // This is purely to simplify the challenge to expose a login method through rpc.
 func (s *CollectionServer) Login(ctx context.Context, req *censysv1.LoginRequest) (*censysv1.LoginResponse, error) {
 	if req.Email == "" {
